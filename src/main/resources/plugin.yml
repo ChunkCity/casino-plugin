@@ -1,0 +1,14 @@
+name: CasinoPlugin
+main: eu.hiddenite.casino.CasinoPlugin
+version: 1.0.0
+api-version: 1.15
+author: Hiddenite
+commands:
+  casino:
+    permission: hiddenite.casino
+    description: "Casino commands."
+    usage: "/<command>"
+permissions:
+  hiddenite.casino:
+    description: "Allows the /casino command."
+    default: op
