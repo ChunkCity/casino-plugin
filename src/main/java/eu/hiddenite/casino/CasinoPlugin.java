@@ -1,21 +1,25 @@
 package eu.hiddenite.casino;
 
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
+import eu.hiddenite.casino.machine.fall.FallMachineResult;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import eu.hiddenite.casino.commands.CasinoCommand;
-import eu.hiddenite.casino.machine.SlotMachineManager;
+import eu.hiddenite.casino.machine.MachineManager;
 
-@SuppressWarnings("unused")
 public class CasinoPlugin extends JavaPlugin {
-    private SlotMachineManager slotMachineManager;
+    private MachineManager machineManager;
     private Database database;
     private Economy economy;
 
-    public SlotMachineManager getSlotMachineManager() {
-        return slotMachineManager;
+    public MachineManager getSlotMachineManager() {
+        return machineManager;
     }
 
     public Database getDatabase() {
@@ -34,15 +38,43 @@ public class CasinoPlugin extends JavaPlugin {
             return;
         }
         try {
-            slotMachineManager = new SlotMachineManager(this);
+            machineManager = new MachineManager(this);
         } catch (Exception e) {
             getLogger().warning(String.format("Failed to load the plugin: %s.", e.getMessage()));
+            e.printStackTrace();
             return;
         }
         var casinoCommand = getCommand("casino");
         if (casinoCommand != null) {
             casinoCommand.setExecutor(new CasinoCommand(this));
         }
+    }
+
+    void testScore() {
+        var results = new HashMap<Integer, Integer>();
+        for (var i = 0; i < 100000000; i += 1) {
+            var rows = buildRows();
+            var result = new FallMachineResult(rows, 1);
+            results.put(result.getFinalScore(), results.getOrDefault(result.getFinalScore(), 0) + 1);
+        }
+        for (var result : results.entrySet()) {
+            var score = result.getKey();
+            var count = result.getValue();
+            getLogger().warning(String.format("%d : %d", score, count));
+        }
+    }
+
+    private List<List<Integer>> buildRows() {
+        List<List<Integer>> rows = new ArrayList<>();
+        for (var i = 0; i < 3; i += 1) {
+            List<Integer> row = new ArrayList<>();
+            for (var j = 0; j < 3; j += 1) {
+                var score = (Math.random() * 5 % 5) + 1;
+                row.add((int)score);
+            }
+            rows.add(row);
+        }
+        return rows;
     }
 
     @Override
@@ -64,5 +96,39 @@ public class CasinoPlugin extends JavaPlugin {
 
     public void sendMessage(Player player, String key, Object... parameters) {
         player.sendMessage(formatMessage(key, parameters));
+    }
+
+    public Component formatComponent(String key, Object... parameters) {
+        return LegacyComponentSerializer.legacySection().deserialize(formatMessage(key, parameters))
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
+    public List<Component> formatComponents(String key, Object... parameters) {
+        String message = formatMessage(key, parameters);
+        return Arrays.stream(message.split("\n"))
+                .map(x -> LegacyComponentSerializer.legacySection().deserialize(x)
+                        .decoration(TextDecoration.ITALIC, false))
+                .collect(Collectors.toList());
+    }
+
+    private Component actionBarMessage = null;
+
+    private void reSendActionBar(Player player) {
+        if (actionBarMessage != null) {
+            player.sendActionBar(actionBarMessage);
+        }
+    }
+
+    public void sendActionBarLong(Player player, String key, Object... parameters) {
+        Component component = formatComponent(key, parameters);
+        actionBarMessage = component;
+        player.sendActionBar(actionBarMessage);
+        getServer().getScheduler().scheduleSyncDelayedTask(this, () -> reSendActionBar(player), 40);
+    }
+
+    public void sendActionBar(Player player, String key, Object... parameters) {
+        Component component = formatComponent(key, parameters);
+        actionBarMessage = null;
+        player.sendActionBar(component);
     }
 }

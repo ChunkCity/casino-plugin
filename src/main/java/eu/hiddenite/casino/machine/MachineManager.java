@@ -1,13 +1,17 @@
 package eu.hiddenite.casino.machine;
 
+import eu.hiddenite.casino.machine.fall.FallMachine;
+import eu.hiddenite.casino.machine.slot.SlotMachine;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.type.Switch;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -20,12 +24,11 @@ import eu.hiddenite.casino.CasinoPlugin;
 import java.sql.SQLException;
 import java.util.*;
 
-@SuppressWarnings("unused")
-public class SlotMachineManager implements Listener {
+public class MachineManager implements Listener {
     private final CasinoPlugin plugin;
-    private final HashMap<Integer, SlotMachine> slotMachines = new HashMap<>();
+    private final HashMap<Integer, IMachine> slotMachines = new HashMap<>();
 
-    public SlotMachineManager(CasinoPlugin plugin) throws Exception {
+    public MachineManager(CasinoPlugin plugin) throws Exception {
         this.plugin = plugin;
         loadSlotMachinesFromDB();
 
@@ -60,7 +63,6 @@ public class SlotMachineManager implements Listener {
     }
 
     private void registerSlotMachineScreen(Player player, Block block) {
-        var id = 0;
         temporarySlotMachineConfig.screen = block.getLocation();
         temporarySlotMachineConfig.screenFacing = player.getTargetBlockFace(50);
         plugin.sendMessage(player, "casino.messages.slot-machine-screen-built");
@@ -84,7 +86,7 @@ public class SlotMachineManager implements Listener {
         plugin.sendMessage(player, "casino.messages.slot-machine-lever-built");
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockPlaceEvent(final BlockPlaceEvent event) {
         var player = event.getPlayer();
         if (temporarySlotMachineConfig == null || temporarySlotMachineConfig.player != player) {
@@ -100,7 +102,7 @@ public class SlotMachineManager implements Listener {
         }
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockBreakEvent(final BlockBreakEvent event) {
         var block = event.getBlock();
         var player = event.getPlayer();
@@ -121,7 +123,7 @@ public class SlotMachineManager implements Listener {
         }
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerInteract(final PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
@@ -139,6 +141,8 @@ public class SlotMachineManager implements Listener {
         try {
             var slotMachine = slotMachines.get(slotMachineId.getAsInt());
             slotMachine.play(player);
+            plugin.getLogger().warning(String.format("%s is playing %s machine %d",
+                    player.getName(), slotMachine.getType().toString(), slotMachine.getId()));
         } catch (Exception error) {
             plugin.sendMessage(player,"casino.messages.slot-machine-user-error");
             plugin.getLogger().warning(String.format("error: slot machine %d: %s",
@@ -160,8 +164,8 @@ public class SlotMachineManager implements Listener {
         database.disableAutocommit();
         var insert_request =
                 "INSERT INTO slot_machines " +
-                        "(lever_x, lever_y, lever_z, screen_x, screen_y, screen_z, lever_facing, screen_facing) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                        "(lever_x, lever_y, lever_z, screen_x, screen_y, screen_z, lever_facing, screen_facing, type, input_price) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         var insert_statement = database.prepareStatement(insert_request);
         insert_statement.setInt(1, slotMachine.lever.getBlockX());
         insert_statement.setInt(2, slotMachine.lever.getBlockY());
@@ -171,11 +175,13 @@ public class SlotMachineManager implements Listener {
         insert_statement.setInt(6, slotMachine.screen.getBlockZ());
         insert_statement.setString(7, blockFaceToString(slotMachine.leverFacing));
         insert_statement.setString(8, blockFaceToString(slotMachine.screenFacing));
+        insert_statement.setString(9, slotMachine.machineType.toString());
+        insert_statement.setInt(10, slotMachine.inputPrice);
 
         var select_request = "SELECT LAST_INSERT_ID()";
         var select_statement = database.prepareStatement(select_request);
 
-        var insert_result = insert_statement.executeUpdate();
+        insert_statement.executeUpdate();
         var select_result = select_statement.executeQuery();
         database.commit();
         database.enableAutocommit();
@@ -191,8 +197,8 @@ public class SlotMachineManager implements Listener {
         var request =
                 "REPLACE INTO slot_machines " +
                         "(slot_machine_id, lever_x, lever_y, lever_z, screen_x, screen_y, screen_z, " +
-                        "lever_facing, screen_facing) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                        "lever_facing, screen_facing, type, input_price) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         var statement = plugin.getDatabase().prepareStatement(request);
         statement.setInt(1, slotMachine.getId());
         statement.setInt(2, slotMachine.getLeverLocation().getBlockY());
@@ -203,6 +209,8 @@ public class SlotMachineManager implements Listener {
         statement.setInt(7, slotMachine.getScreenLocation().getBlockZ());
         statement.setString(8, blockFaceToString(slotMachine.getLeverFacing()));
         statement.setString(9, blockFaceToString(slotMachine.getScreenFacing()));
+        statement.setString(10, slotMachine.getType().toString());
+        statement.setInt(11, slotMachine.getInputPrice());
         statement.executeQuery();
     }
 
@@ -226,18 +234,36 @@ public class SlotMachineManager implements Listener {
         }
     }
 
+    private void loadSlotMachinesFromDB() throws Exception {
+        var worldName = plugin.getConfig().getString("world-name");
+        if (worldName == null) {
+            throw new Exception("Missing world-name field in config");
+        }
+        var world = Bukkit.getWorld(worldName);
+        var ps = plugin.getDatabase().prepareStatement(
+                "SELECT slot_machine_id, lever_x, lever_y, lever_z, screen_x, screen_y, screen_z, " +
+                        "lever_facing, screen_facing, type, input_price " +
+                        "FROM slot_machines");
+        try (var rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int id = rs.getInt("slot_machine_id");
+                loadMachineFromRequest(rs, world, id);
+            }
+        }
+        plugin.getLogger().info("Loaded slot machines");
+    }
+
     private void loadSlotMachineFromDB(int id) throws Exception {
         var worldName = plugin.getConfig().getString("world-name");
         if (worldName == null) {
             throw new Exception("Missing world-name field in config");
         }
         var world = Bukkit.getWorld(worldName);
-        var ps = plugin.getDatabase().prepareStatement(String.format(
+        var ps = plugin.getDatabase().prepareStatement(
                 "SELECT slot_machine_id, lever_x, lever_y, lever_z, screen_x, screen_y, screen_z, " +
-                        "lever_facing, screen_facing " +
-                "FROM slot_machines WHERE slot_machine_id = %d",
-                id)
-        );
+                        "lever_facing, screen_facing, type, input_price " +
+                "FROM slot_machines WHERE slot_machine_id = ?");
+        ps.setInt(1, id);
         var rs = ps.executeQuery();
         if (!rs.next()) {
             throw new Exception(String.format("Slot Machine %d not found in DB", id));
@@ -246,6 +272,10 @@ public class SlotMachineManager implements Listener {
         if (id_from_rs != id) {
             throw new Exception(String.format("Looking for Slot Machine id %d but received id %d", id, id_from_rs));
         }
+        loadMachineFromRequest(rs, world, id);
+    }
+
+    private void loadMachineFromRequest(java.sql.ResultSet rs, World world, int id) throws Exception {
         var leverPosition = new Location(
                 world,
                 rs.getInt("lever_x"),
@@ -260,49 +290,29 @@ public class SlotMachineManager implements Listener {
         );
         var leverFacing = stringToBlockFace(rs.getString("lever_facing"));
         var screenFacing = stringToBlockFace(rs.getString("screen_facing"));
-        var slotMachine = new SlotMachine(plugin, id, leverPosition, screenPosition, leverFacing, screenFacing);
-        slotMachines.put(id, slotMachine);
+        var typeString = rs.getString("type");
+        var type =
+                typeString.isEmpty() ? IMachine.MachineType.SLOT : IMachine.MachineType.valueOf(typeString);
+        var inputPrice = rs.getInt("input_price");
+        var machine = instantiateMachine(
+                type, id, leverPosition, screenPosition, leverFacing, screenFacing, inputPrice);
+        slotMachines.put(id, machine);
         plugin.getLogger().info(String.format("[SlotMachine] Loaded slot machine %d", id));
     }
 
-    private void loadSlotMachinesFromDB() throws Exception {
-        var worldName = plugin.getConfig().getString("world-name");
-        if (worldName == null) {
-            throw new Exception("Missing world-name field in config");
+    private IMachine instantiateMachine(IMachine.MachineType machineType, int id,
+                                        Location leverPosition, Location screenPosition,
+                                        BlockFace leverFacing, BlockFace screenFacing, int inputPrice) throws Exception {
+        switch (machineType) {
+            case FALL:
+                return new FallMachine(
+                        plugin, id, leverPosition, screenPosition, leverFacing, screenFacing, inputPrice);
+            case SLOT:
+                return new SlotMachine(
+                        plugin, id, leverPosition, screenPosition, leverFacing, screenFacing, inputPrice);
+            default:
+                throw new IllegalArgumentException(String.format("Unsupported machine type %s", machineType));
         }
-        var world = Bukkit.getWorld(worldName);
-        var ps = plugin.getDatabase().prepareStatement(
-                "SELECT slot_machine_id, lever_x, lever_y, lever_z, screen_x, screen_y, screen_z, " +
-                        "lever_facing, screen_facing " +
-                "FROM slot_machines");
-        try (var rs = ps.executeQuery()) {
-            while (rs.next()) {
-                int id = rs.getInt("slot_machine_id");
-                var leverPosition = new Location(
-                        world,
-                        rs.getInt("lever_x"),
-                        rs.getInt("lever_y"),
-                        rs.getInt("lever_z")
-                );
-                var screenPosition = new Location(
-                        world,
-                        rs.getInt("screen_x"),
-                        rs.getInt("screen_y"),
-                        rs.getInt("screen_z")
-                );
-                try {
-                    var leverFacing = stringToBlockFace(rs.getString("lever_facing"));
-                    var screenFacing = stringToBlockFace(rs.getString("screen_facing"));
-                    var slotMachine = new SlotMachine(plugin, id, leverPosition, screenPosition, leverFacing, screenFacing);
-                    slotMachines.put(id, slotMachine);
-                } catch (Exception error) {
-                    deleteSlotMachineFromDB(id);
-                    plugin.getLogger().warning(String.format(
-                            "Slot machine %d deleted from db because it could not load: %s.", id, error.getMessage()));
-                }
-            }
-        }
-        plugin.getLogger().info("Loaded slot machines");
     }
 
     private String blockFaceToString(BlockFace blockFace) {
@@ -325,14 +335,17 @@ public class SlotMachineManager implements Listener {
         public BlockFace screenFacing = null;
         public BlockFace leverFacing = null;
         public Player player = null;
+        public IMachine.MachineType machineType = null;
+        public int inputPrice = 0;
     }
-
 
     private TemporarySlotMachineConfig temporarySlotMachineConfig = null;
 
-    public void setupSlotMachine(Player player) {
+    public void setupSlotMachine(Player player, IMachine.MachineType machineType, int inputPrice) {
         temporarySlotMachineConfig = new TemporarySlotMachineConfig();
         temporarySlotMachineConfig.player = player;
+        temporarySlotMachineConfig.machineType = machineType;
+        temporarySlotMachineConfig.inputPrice = inputPrice;
         plugin.sendMessage(player, "casino.messages.slot-machine-screen-initiate-building");
     }
 

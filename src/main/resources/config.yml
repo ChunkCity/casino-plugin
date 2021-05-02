@@ -2,8 +2,9 @@ casino:
   messages:
     command-unknown: "Command du casino inconnue: {COMMAND}"
     casino-usage: "Commandes du casino: {SUBCOMMANDS}"
-    casino-slot-usage: "Commandes de casino slot: {SLOTCOMMANDS}"
-    casino-slot-delete-usage: "usage: /casino slot delete <id>"
+    casino-machine-usage: "Commandes de casino slot: {SLOTCOMMANDS}"
+    casino-machine-create-usage: "usage: /casino machine create <type> <price>"
+    casino-machine-delete-usage: "usage: /casino machine delete <id>"
     slot-machine-admin-error: "Une erreur est survenue (voir les logs)"
     slot-machine-screen-initiate-building: "Nouvelle machine à sous: placez un levier et un bloc qui sera la base de l'écran"
     slot-machine-created: "Nouvelle machine à sous créée avec l'id {SLOTMACHINEID}"
@@ -20,6 +21,7 @@ casino:
     slot-machine-player-too-poor: "Il vous faut au moins {PRICE}C$ pour jouer !"
     slot-machine-debit: "{PRICE}C$ mis en jeu !"
     slot-machine-gain: "Vous avez gagné {GAIN}C$ !"
+    fall-machine-gain: "Vous avez gagné {GAIN}C$ avec {COMBINATIONS} !"
 mysql:
   host: "localhost"
   database: "casino_db"

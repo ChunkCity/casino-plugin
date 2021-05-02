@@ -1,7 +1,8 @@
-package eu.hiddenite.casino.machine;
+package eu.hiddenite.casino.machine.slot;
 
 import eu.hiddenite.casino.CasinoPlugin;
 import eu.hiddenite.casino.Economy;
+import eu.hiddenite.casino.machine.AMachine;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -10,42 +11,23 @@ import org.bukkit.block.data.type.Switch;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
 
-@SuppressWarnings("unused")
-public class SlotMachine {
-    private final CasinoPlugin plugin;
-    private final int id;
-    private final Location leverLocation;
-    private final Location screenLocation;
-    private final BlockFace leverFacing;
-    private final BlockFace screenFacing;
-    private final ArrayList<SlotMachineRow> rows = new ArrayList<>();
+public class SlotMachine extends AMachine {
+    protected ArrayList<SlotMachineRow> rows = new ArrayList<>();
 
     public SlotMachine(CasinoPlugin plugin, int id, Location leverLocation, Location screenLocation,
-                       BlockFace leverFacing, BlockFace screenFacing) throws Exception {
-        this.plugin = plugin;
-        this.id = id;
-        this.leverLocation = leverLocation;
-        this.screenLocation = screenLocation;
-        this.leverFacing = leverFacing;
-        this.screenFacing = screenFacing;
+                       BlockFace leverFacing, BlockFace screenFacing, int inputPrice) throws Exception {
+        super(plugin, id, leverLocation, screenLocation, leverFacing, screenFacing, inputPrice);
         createLever();
         createScreen();
     }
 
-    public void destroy() throws Exception {
-        leverLocation.getBlock().breakNaturally();
-        for (var row : rows) {
-            row.destroy();
-        }
+    @Override
+    public MachineType getType() {
+        return MachineType.SLOT;
     }
 
-    public boolean isPlaying() {
-        return playing;
-    }
-
+    @Override
     public void play(Player player) {
         if (playing) {
             if (playerPlaying == null) {
@@ -53,19 +35,18 @@ public class SlotMachine {
                 plugin.getLogger().warning(
                         "Tried to play the slot machine but it is already playing without a player");
             } else if (player != playerPlaying) {
-                plugin.sendMessage(player, "casino.messages.slot-machine-already-playing", "{PLAYER}",
+                plugin.sendActionBar(player, "casino.messages.slot-machine-already-playing", "{PLAYER}",
                         playerPlaying.getName());
             } else {
-                plugin.sendMessage(player, "casino.messages.slot-machine-already-playing-self");
+                plugin.sendActionBar(player, "casino.messages.slot-machine-already-playing-self");
             }
             return;
         }
 
-        long slotMachineCost = 20000;
-        var result = plugin.getEconomy().removeMoney(player.getUniqueId(), slotMachineCost);
+        var result = plugin.getEconomy().removeMoney(player.getUniqueId(), inputPrice);
         if (result == Economy.ResultType.NOT_ENOUGH_MONEY) {
-            plugin.sendMessage(player, "casino.messages.slot-machine-player-too-poor", "{PRICE}",
-                    slotMachineCost);
+            plugin.sendActionBar(player, "casino.messages.slot-machine-player-too-poor", "{PRICE}",
+                    inputPrice);
             return;
         } else if (result != Economy.ResultType.SUCCESS) {
             plugin.sendMessage(player, "casino.messages.slot-machine-user-error");
@@ -91,15 +72,14 @@ public class SlotMachine {
         var leverData = (Switch) leverLocation.getBlock().getBlockData();
         leverData.setPowered(true);
         leverLocation.getBlock().setBlockData(leverData);
-        plugin.sendMessage(player, "casino.messages.slot-machine-debit", "{PRICE}", slotMachineCost);
+        plugin.sendActionBar(player, "casino.messages.slot-machine-debit", "{PRICE}", inputPrice);
         playing = true;
         playerPlaying = player;
         waitForRows(player);
     }
 
-    private boolean playing = false;
     private Player playerPlaying = null;
-    public void waitForRows(Player player) {
+    private void waitForRows(Player player) {
         if (!playing || playerPlaying == null || player != playerPlaying) {
             plugin.sendMessage(player, "casino.messages.slot-machine-user-error");
             plugin.getLogger().warning("error: tried to play the slot machine without initializing it beforehand");
@@ -129,23 +109,22 @@ public class SlotMachine {
             results.add(row.resultId());
         }
 
-        var duplicate = duplicates(results);
         if (results.get(0).equals(results.get(1)) && results.get(0).equals(results.get(2))) {
             switch (results.get(0)) {
                 case 0:
-                    money = 100000;
+                    money = 5 * inputPrice;
                     break;
                 case 1:
-                    money = 250000;
+                    money = 125 * inputPrice / 10;
                     break;
                 case 2:
-                    money = 500000;
+                    money = 25 * inputPrice;
                     break;
                 case 3:
-                    money = 1000000;
+                    money = 50 * inputPrice;
                     break;
                 default:
-                    money = 100000;
+                    money = inputPrice;
                     plugin.sendMessage(player, "casino.messages.slot-machine-user-error");
                     plugin.getLogger().warning(String.format("error: unknown row result id %d", results.get(0)));
             }
@@ -159,17 +138,6 @@ public class SlotMachine {
 
     }
 
-    int duplicates(final ArrayList<Integer> values)
-    {
-        Set<Integer> lump = new HashSet<>();
-        for (int i : values)
-        {
-            if (lump.contains(i)) return i;
-            lump.add(i);
-        }
-        return -1;
-    }
-
     private void resetLever() {
         var block = leverLocation.getBlock();
         if (block.getType() != Material.LEVER) {
@@ -180,37 +148,19 @@ public class SlotMachine {
         block.setBlockData(leverData);
     }
 
-    private void createLever() {
-        if (leverLocation.getBlock().getType() == Material.LEVER
-                && ((Switch)leverLocation.getBlock().getBlockData()).getFacing() == this.leverFacing) {
-            return;
-        }
-        var block = leverLocation.getBlock();
-        block.setType(Material.LEVER);
-        var lever = (Switch)block.getBlockData();
-        lever.setFacing(leverFacing);
-        block.setBlockData(lever);
-    }
-
-    private void createScreen() throws Exception {
+    @Override
+    protected void createScreen() throws Exception {
         var anchorBlock = screenLocation.getBlock();
         rows.add(new SlotMachineRow(plugin, anchorBlock, 0, screenFacing, false));
         rows.add(new SlotMachineRow(plugin, anchorBlock, 1, screenFacing, true));
         rows.add(new SlotMachineRow(plugin, anchorBlock, 2, screenFacing, false));
     }
 
-    public int getId() {
-        return id;
+    @Override
+    public void destroy() throws Exception {
+        leverLocation.getBlock().breakNaturally();
+        for (var row : rows) {
+            row.destroy();
+        }
     }
-
-    public Location getLeverLocation() {
-        return leverLocation;
-    }
-
-    public Location getScreenLocation() {
-        return screenLocation;
-    }
-
-    public BlockFace getLeverFacing() { return leverFacing; }
-    public BlockFace getScreenFacing() { return screenFacing; }
 }

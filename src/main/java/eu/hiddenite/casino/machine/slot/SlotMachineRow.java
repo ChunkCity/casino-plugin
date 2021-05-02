@@ -1,14 +1,14 @@
-package eu.hiddenite.casino.machine;
+package eu.hiddenite.casino.machine.slot;
 
 import eu.hiddenite.casino.CasinoPlugin;
+import eu.hiddenite.casino.helpers.BlockHelper;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 
-import static java.lang.Math.exp;
-import static java.lang.Math.log;
+import static java.lang.Math.*;
 
 @SuppressWarnings("unused")
 public class SlotMachineRow {
@@ -16,14 +16,15 @@ public class SlotMachineRow {
 
     private final CasinoPlugin plugin;
     private final Block anchor;
-    private final int height;
+    private final int position;
     private final BlockFace screenFacing;
     private final boolean reverse;
 
-    public SlotMachineRow(CasinoPlugin plugin, Block anchor, int height, BlockFace screenFacing, boolean reverse) throws Exception {
+    public SlotMachineRow(
+            CasinoPlugin plugin, Block anchor, int position, BlockFace screenFacing, boolean reverse) throws Exception {
         this.plugin = plugin;
         this.anchor = anchor;
-        this.height = height;
+        this.position = position;
         this.screenFacing = screenFacing;
         this.reverse = reverse;
         iterate();
@@ -37,7 +38,7 @@ public class SlotMachineRow {
         }
         iteration[0] *= (id - rowSize / 2);
         iteration[1] *= (id - rowSize / 2);
-        return world.getBlockAt(anchor.getX() + iteration[0], anchor.getY() + height, anchor.getZ() + iteration[1]);
+        return world.getBlockAt(anchor.getX() + iteration[0], anchor.getY() + position, anchor.getZ() + iteration[1]);
     }
 
     private int[] getIteration() throws Exception {
@@ -60,7 +61,7 @@ public class SlotMachineRow {
         var start = anchor.getX() - (rowSize / 2);
         for (var i = 0; i < rowSize; i += 1) {
             var block = getBlock(i);
-            block.breakNaturally();
+            BlockHelper.breakNaturallyNoDrop(block);
         }
     }
 
@@ -102,13 +103,10 @@ public class SlotMachineRow {
 
     private boolean playing = false;
     private int round = 0;
-    private int totalRound = 0;
 
     public void play(Player player) {
         playing = true;
-        var randomInt = 100 + (int)(Math.random() * 10) % 10;
-        round = 10 + randomInt;
-        totalRound = round;
+        round = 50;
         roundChecked(player);
     }
 
@@ -130,7 +128,7 @@ public class SlotMachineRow {
         var world = anchor.getWorld();
         var location = world.getBlockAt(
                 anchor.getX(),
-                anchor.getY() + height,
+                anchor.getY() + position,
                 anchor.getZ()
         ).getLocation();
         world.playSound(location, Sound.BLOCK_LANTERN_PLACE, 0.05f, 2.5f);
@@ -139,9 +137,10 @@ public class SlotMachineRow {
             result = getRowValue();
             playing = false;
         } else {
+            var ticks = exp(-((round)) / (10.0 + position * 10.0)) * 10.0 + 1.0;
             plugin.getServer().getScheduler().scheduleSyncDelayedTask(
                     plugin, () -> roundChecked(player),
-                    (long) exp(log((double)(totalRound - round + 1) / 35)));
+                    (long) ticks);
         }
     }
 
