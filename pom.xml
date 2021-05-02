@@ -19,7 +19,7 @@
     </dependencies>
     <groupId>eu.hiddenite.casino</groupId>
     <artifactId>minecraft-casino-plugin</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
 
     <properties>
         <maven.compiler.source>13</maven.compiler.source>

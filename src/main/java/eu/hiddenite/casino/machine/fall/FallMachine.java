@@ -54,7 +54,7 @@ public class FallMachine extends AMachine {
         }
 
         var result = plugin.getEconomy().removeMoney(player.getUniqueId(), inputPrice);
-        screenLocation.getWorld().playSound(screenLocation.toCenterLocation(), Sound.BLOCK_LAVA_POP, 20.0f, 0.5f);
+        screenLocation.getWorld().playSound(screenLocation.toCenterLocation(), Sound.BLOCK_LAVA_POP, 1.0f, 0.5f);
         if (result == Economy.ResultType.NOT_ENOUGH_MONEY) {
             plugin.sendActionBar(player, "casino.messages.slot-machine-player-too-poor", "{PRICE}",
                     inputPrice);
