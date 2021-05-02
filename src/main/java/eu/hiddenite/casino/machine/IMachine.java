@@ -14,6 +14,7 @@ public interface IMachine {
     BlockFace getLeverFacing();
     BlockFace getScreenFacing();
     int getInputPrice();
+    void initScreen() throws Exception;
 
     enum MachineType {
         SLOT,

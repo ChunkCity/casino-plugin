@@ -39,7 +39,6 @@ public class FallMachineRow {
         this.anchor = anchor;
         this.position = position;
         this.screenFacing = screenFacing;
-        createRow();
     }
 
     private final ArrayList row = new ArrayList();
@@ -58,7 +57,7 @@ public class FallMachineRow {
         }
     }
 
-    private void createRow() throws Exception {
+    public void createRow() throws Exception {
         clearEntities();
         plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> blockFallRec(0), position * 10L);
     }

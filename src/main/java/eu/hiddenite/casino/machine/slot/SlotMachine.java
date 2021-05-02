@@ -101,6 +101,12 @@ public class SlotMachine extends AMachine {
         }
     }
 
+    public void initScreen() throws Exception {
+        for (var row : rows) {
+            row.createRow();
+        }
+    }
+
     private void processResult(Player player) {
         var world = screenLocation.getWorld();
         var results = new ArrayList<Integer>();

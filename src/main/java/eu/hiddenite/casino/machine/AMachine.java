@@ -55,6 +55,8 @@ public abstract class AMachine implements IMachine {
 
     public int getInputPrice() { return inputPrice; }
 
+    public abstract void initScreen() throws Exception;
+
     protected void createLever() {
         if (leverLocation.getBlock().getType() == Material.LEVER
                 && ((Switch)leverLocation.getBlock().getBlockData()).getFacing() == this.leverFacing) {

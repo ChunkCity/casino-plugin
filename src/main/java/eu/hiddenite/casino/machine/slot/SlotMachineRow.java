@@ -27,6 +27,9 @@ public class SlotMachineRow {
         this.position = position;
         this.screenFacing = screenFacing;
         this.reverse = reverse;
+    }
+
+    public void createRow() throws Exception {
         iterate();
     }
 

@@ -38,6 +38,12 @@ public class FallMachine extends AMachine {
         }
     }
 
+    public void initScreen() throws Exception {
+        for (var row : rows) {
+            row.createRow();
+        }
+    }
+
     public void play(Player player) {
         if (playing) {
             if (playerPlaying == null) {

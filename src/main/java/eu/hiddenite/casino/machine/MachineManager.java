@@ -48,7 +48,8 @@ public class MachineManager implements Listener {
         if (temporarySlotMachineConfig.lever != null && temporarySlotMachineConfig.screen != null) {
             var id = createSlotMachineInDB(temporarySlotMachineConfig);
             try {
-                loadSlotMachineFromDB(id);
+                var machine = loadSlotMachineFromDB(id);
+                machine.initScreen();
                 plugin.sendMessage(player, "casino.messages.slot-machine-created", "{SLOTMACHINEID}",
                         id);
             } catch (Exception error) {
@@ -141,7 +142,7 @@ public class MachineManager implements Listener {
         try {
             var slotMachine = slotMachines.get(slotMachineId.getAsInt());
             slotMachine.play(player);
-            plugin.getLogger().warning(String.format("%s is playing %s machine %d",
+            plugin.getLogger().info(String.format("%s is playing %s machine %d",
                     player.getName(), slotMachine.getType().toString(), slotMachine.getId()));
         } catch (Exception error) {
             plugin.sendMessage(player,"casino.messages.slot-machine-user-error");
@@ -253,7 +254,7 @@ public class MachineManager implements Listener {
         plugin.getLogger().info("Loaded slot machines");
     }
 
-    private void loadSlotMachineFromDB(int id) throws Exception {
+    private IMachine loadSlotMachineFromDB(int id) throws Exception {
         var worldName = plugin.getConfig().getString("world-name");
         if (worldName == null) {
             throw new Exception("Missing world-name field in config");
@@ -272,10 +273,10 @@ public class MachineManager implements Listener {
         if (id_from_rs != id) {
             throw new Exception(String.format("Looking for Slot Machine id %d but received id %d", id, id_from_rs));
         }
-        loadMachineFromRequest(rs, world, id);
+        return loadMachineFromRequest(rs, world, id);
     }
 
-    private void loadMachineFromRequest(java.sql.ResultSet rs, World world, int id) throws Exception {
+    private IMachine loadMachineFromRequest(java.sql.ResultSet rs, World world, int id) throws Exception {
         var leverPosition = new Location(
                 world,
                 rs.getInt("lever_x"),
@@ -298,6 +299,7 @@ public class MachineManager implements Listener {
                 type, id, leverPosition, screenPosition, leverFacing, screenFacing, inputPrice);
         slotMachines.put(id, machine);
         plugin.getLogger().info(String.format("[SlotMachine] Loaded slot machine %d", id));
+        return machine;
     }
 
     private IMachine instantiateMachine(IMachine.MachineType machineType, int id,
