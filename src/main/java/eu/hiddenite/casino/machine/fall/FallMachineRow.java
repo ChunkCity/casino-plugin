@@ -33,8 +33,7 @@ public class FallMachineRow {
             Material.NETHERITE_BLOCK,
     };
 
-    public FallMachineRow(CasinoPlugin plugin, Block anchor, int position, BlockFace screenFacing, boolean reverse)
-            throws Exception {
+    public FallMachineRow(CasinoPlugin plugin, Block anchor, int position, BlockFace screenFacing) {
         this.plugin = plugin;
         this.anchor = anchor;
         this.position = position;

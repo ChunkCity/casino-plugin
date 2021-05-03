@@ -21,7 +21,7 @@ public class SlotMachineRow {
     private final boolean reverse;
 
     public SlotMachineRow(
-            CasinoPlugin plugin, Block anchor, int position, BlockFace screenFacing, boolean reverse) throws Exception {
+            CasinoPlugin plugin, Block anchor, int position, BlockFace screenFacing, boolean reverse) {
         this.plugin = plugin;
         this.anchor = anchor;
         this.position = position;
@@ -109,7 +109,8 @@ public class SlotMachineRow {
 
     public void play(Player player) {
         playing = true;
-        round = 50;
+        var random = (int)((Math.random() * materials.length) % materials.length);
+        round = 50 + random;
         roundChecked(player);
     }
 

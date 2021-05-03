@@ -6,7 +6,6 @@ import eu.hiddenite.casino.machine.AMachine;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.type.Switch;
 import org.bukkit.entity.Player;
@@ -163,8 +162,8 @@ public class FallMachine extends AMachine {
 
     protected void createScreen() throws Exception {
         var anchorBlock = screenLocation.getBlock();
-        rows.add(new FallMachineRow(plugin, anchorBlock, 0, screenFacing, false));
-        rows.add(new FallMachineRow(plugin, anchorBlock, 1, screenFacing, true));
-        rows.add(new FallMachineRow(plugin, anchorBlock, 2, screenFacing, false));
+        rows.add(new FallMachineRow(plugin, anchorBlock, 0, screenFacing));
+        rows.add(new FallMachineRow(plugin, anchorBlock, 1, screenFacing));
+        rows.add(new FallMachineRow(plugin, anchorBlock, 2, screenFacing));
     }
 }
